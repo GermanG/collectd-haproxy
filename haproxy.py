@@ -158,7 +158,7 @@ def read_callback():
     return
 
   for key,value in info.items():
-    key_prefix = None
+    key_prefix = ''
     key_root = key
     if not value in METRIC_TYPES:
       try:
@@ -169,12 +169,9 @@ def read_callback():
       continue
 
     key_root, val_type = METRIC_TYPES[key_root]
-    if key_prefix:
-      key_name = METRIC_DELIM.join([key_prefix, key_root])
-    else:
-      key_name = key_root
     val = collectd.Values(plugin=NAME, type=val_type)
-    val.type_instance = key_name
+    val.plugin_instance = key_prefix
+    val.type_instance = key_root
     val.values = [ value ]
     val.dispatch()
 
