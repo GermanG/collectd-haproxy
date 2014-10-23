@@ -6,8 +6,9 @@
 # Plugin structure and logging func taken from https://github.com/phrawzty/rabbitmq-collectd-plugin
 
 import collectd
-import socket
 import csv
+import socket
+import re
 
 NAME = 'haproxy'
 RECV_SIZE = 1024
@@ -49,7 +50,7 @@ METRIC_TYPES = {
 METRIC_DELIM = '.' # for the frontend/backend stats
 
 DEFAULT_SOCKET = '/var/lib/haproxy/stats'
-DEFAULT_PROXY_MONITORS = [ 'server', 'frontend', 'backend' ]
+DEFAULT_PROXY_MONITORS = r'^(backend|frontend)'
 VERBOSE_LOGGING = False
 
 class HAProxySocket(object):
@@ -98,6 +99,7 @@ class HAProxySocket(object):
 def get_stats():
   stats = dict()
   haproxy = HAProxySocket(HAPROXY_SOCKET)
+  reg = re.compile(PROXY_MONITORS, re.IGNORECASE)
 
   try:
     server_info = haproxy.get_server_info()
@@ -106,48 +108,37 @@ def get_stats():
     logger('warn', "status err Unable to connect to HAProxy socket at %s" % HAPROXY_SOCKET)
     return stats
 
-  if 'server' in PROXY_MONITORS:
-    for key,val in server_info.items():
-      try:
-        stats[key] = int(val)
-      except (TypeError, ValueError), e:
-        pass
+  for key,val in server_info.items():
+    try:
+      stats[key] = int(val)
+    except (TypeError, ValueError), e:
+      pass
 
   for statdict in server_stats:
-    if not (statdict['svname'].lower() in PROXY_MONITORS or statdict['pxname'].lower() in PROXY_MONITORS):
-      continue
-    if statdict['pxname'] in PROXY_IGNORE:
-      continue
-    for key,val in statdict.items():
-      metricname = METRIC_DELIM.join([ statdict['svname'].lower(), statdict['pxname'].lower(), key ])
-      try:
-        stats[metricname] = int(val)
-      except (TypeError, ValueError), e:
-        pass
+    if reg.match(statdict['svname']) or reg.match(statdict['pxname']):
+      for key,val in statdict.items():
+        metricname = METRIC_DELIM.join([ statdict['svname'].lower(), statdict['pxname'].lower(), key ])
+        try:
+          stats[metricname] = int(val)
+        except (TypeError, ValueError), e:
+          pass
   return stats
 
 def configure_callback(conf):
-  global PROXY_MONITORS, PROXY_IGNORE, HAPROXY_SOCKET, VERBOSE_LOGGING
-  PROXY_MONITORS = [ ]
-  PROXY_IGNORE = [ ]
+  global PROXY_MONITORS, HAPROXY_SOCKET, VERBOSE_LOGGING
+  PROXY_MONITORS = DEFAULT_PROXY_MONITORS
   HAPROXY_SOCKET = DEFAULT_SOCKET
   VERBOSE_LOGGING = False
 
   for node in conf.children:
     if node.key == "ProxyMonitor":
-      PROXY_MONITORS.append(node.values[0])
-    elif node.key == "ProxyIgnore":
-      PROXY_IGNORE.append(node.values[0])
+      PROXY_MONITORS = node.values[0]
     elif node.key == "Socket":
       HAPROXY_SOCKET = node.values[0]
     elif node.key == "Verbose":
       VERBOSE_LOGGING = bool(node.values[0])
     else:
       logger('warn', 'Unknown config key: %s' % node.key)
-
-  if not PROXY_MONITORS:
-    PROXY_MONITORS += DEFAULT_PROXY_MONITORS
-  PROXY_MONITORS = [ p.lower() for p in PROXY_MONITORS ]
 
 def read_callback():
   logger('verb', "beginning read_callback")
