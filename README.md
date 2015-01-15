@@ -16,11 +16,7 @@ collectd must have the Python plugin installed. See (<http://collectd.org/docume
 Options
 -------
 * `ProxyMonitor`  
-Proxy to monitor. If unset, defaults to ['server', 'frontend', 'backend'].
-Specify multiple times to specify additional proxies
-* `ProxyIgnore`  
-One or more Proxies to ignore
- Specify multiple times to specify additional proxies
+Regular expression for proxy/backend to monitor. If unset, defaults to '^(backend|frontend)'.
 * `Socket`  
 File location of the HAProxy management socket
 * `Verbose`  
@@ -40,7 +36,6 @@ Example
 
         <Module haproxy>
           Socket "/var/run/haproxy.sock"
-          ProxyMonitor "server"
-          ProxyMonitor "backend"
+          ProxyMonitor "^(backend|frontend|app-*)"
         </Module>
     </Plugin>
