@@ -15,7 +15,9 @@ METRIC_TYPES = {
   'bin': ('bytes_in', 'derive'),
   'bout': ('bytes_out', 'derive'),
   'chkfail': ('failed_checks', 'counter'),
+  'ConnRate': ('conn_rate', 'gauge'),
   'CurrConns': ('connections', 'gauge'),
+  'CurrSslConns': ('ssl_connections', 'gauge'),
   'downtime': ('downtime', 'counter'),
   'dresp': ('denied_response', 'derive'),
   'dreq': ('denied_request', 'derive'),
@@ -28,6 +30,7 @@ METRIC_TYPES = {
   'hrsp_4xx': ('response_4xx', 'derive'),
   'hrsp_5xx': ('response_5xx', 'derive'),
   'hrsp_other': ('response_other', 'derive'),
+  'Idle_pct': ('idle_pct', 'gauge'),
   'PipesUsed': ('pipes_used', 'gauge'),
   'PipesFree': ('pipes_free', 'gauge'),
   'qcur': ('queue_current', 'gauge'),
@@ -37,6 +40,7 @@ METRIC_TYPES = {
   'req_rate': ('request_rate', 'gauge'),
   'stot': ('session_total', 'counter'),
   'scur': ('session_current', 'gauge'),
+  'SslRate': ('ssl_rate', 'gauge'),
   'wredis': ('redistributed', 'derive'),
   'wretr': ('retries', 'counter'),
   'Uptime_sec': ('uptime_seconds', 'counter')
@@ -154,7 +158,7 @@ def read_callback():
     return
 
   for key,value in info.items():
-    key_prefix = ''
+    key_prefix = None
     key_root = key
     if not value in METRIC_TYPES:
       try:
@@ -165,7 +169,10 @@ def read_callback():
       continue
 
     key_root, val_type = METRIC_TYPES[key_root]
-    key_name = METRIC_DELIM.join([key_prefix, key_root])
+    if key_prefix:
+      key_name = METRIC_DELIM.join([key_prefix, key_root])
+    else:
+      key_name = key_root
     val = collectd.Values(plugin=NAME, type=val_type)
     val.type_instance = key_name
     val.values = [ value ]
